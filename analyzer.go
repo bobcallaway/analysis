@@ -158,7 +158,7 @@ func New(doc *spec.Swagger) *Spec {
 type Spec struct {
 	spec        *spec.Swagger
 	consumes    map[string]struct{}
-	produces    map[string]struct{}
+	produces    []string
 	authSchemes map[string]struct{}
 	operations  map[string]map[string]*spec.Operation
 	references  referenceAnalysis
@@ -170,7 +170,7 @@ type Spec struct {
 
 func (s *Spec) reset() {
 	s.consumes = make(map[string]struct{}, 150)
-	s.produces = make(map[string]struct{}, 150)
+	s.produces = make([]string, 0, 150)
 	s.authSchemes = make(map[string]struct{}, 150)
 	s.operations = make(map[string]map[string]*spec.Operation, 150)
 	s.allSchemas = make(map[string]SchemaRef, 150)
@@ -204,9 +204,7 @@ func (s *Spec) initialize() {
 	for _, c := range s.spec.Consumes {
 		s.consumes[c] = struct{}{}
 	}
-	for _, c := range s.spec.Produces {
-		s.produces[c] = struct{}{}
-	}
+	s.produces = append(s.produces, s.spec.Produces...)
 	for _, ss := range s.spec.Security {
 		for k := range ss {
 			s.authSchemes[k] = struct{}{}
@@ -341,9 +339,7 @@ func (s *Spec) analyzeOperation(method, path string, op *spec.Operation) {
 		s.consumes[c] = struct{}{}
 	}
 
-	for _, c := range op.Produces {
-		s.produces[c] = struct{}{}
-	}
+	s.produces = append(s.produces, op.Produces...)
 
 	for _, ss := range op.Security {
 		for k := range ss {
@@ -615,20 +611,16 @@ func (s *Spec) ConsumesFor(operation *spec.Operation) []string {
 // ProducesFor gets the mediatypes for the operation
 func (s *Spec) ProducesFor(operation *spec.Operation) []string {
 	if len(operation.Produces) == 0 {
-		prod := make(map[string]struct{}, len(s.spec.Produces))
-		for _, k := range s.spec.Produces {
-			prod[k] = struct{}{}
-		}
+		prod := make([]string, 0, len(s.spec.Produces))
+		prod = append(prod, s.spec.Produces...)
 
-		return s.structMapKeys(prod)
+		return prod
 	}
 
-	prod := make(map[string]struct{}, len(operation.Produces))
-	for _, c := range operation.Produces {
-		prod[c] = struct{}{}
-	}
+	prod := make([]string, 0, len(operation.Produces))
+	prod = append(prod, operation.Produces...)
 
-	return s.structMapKeys(prod)
+	return prod
 }
 
 func mapKeyFromParam(param *spec.Parameter) string {
@@ -875,7 +867,7 @@ func (s *Spec) RequiredConsumes() []string {
 
 // RequiredProduces gets all the distinct produces that are specified in the specification document
 func (s *Spec) RequiredProduces() []string {
-	return s.structMapKeys(s.produces)
+	return s.produces
 }
 
 // RequiredSecuritySchemes gets all the distinct security schemes that are specified in the swagger spec
